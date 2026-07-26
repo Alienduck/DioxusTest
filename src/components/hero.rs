@@ -14,19 +14,23 @@ pub fn Hero() -> Element {
                     div {
                         class: "particle",
                         style: format!(
-                            "left: {}%; top: {}%; animation-delay: {}s; opacity: {};",
+                            "left: {}%; top: {}%; --opacity: {};",
                             (i as f32 * 2.5) % 100.0,
                             ((i as f32) * 2.0) % 100.0,
-                            (i as f32 % 3.0),
                             ((i as f32) / 10.0).min(0.8)
+                        ),
+                        animation: format!(
+                            "float {}s linear {}s infinite",
+                            5.0 + (i as f32) * 0.1,
+                            (i as f32 % 4.0)
                         ),
                     }
                 }
             }
 
-            // Intro content
-                div {
-                    class: "hero-content",
+            // Intro content with fade-in animation
+            div {
+                class: "hero-content",
 
                 h1 {
                     class: "hero-title",

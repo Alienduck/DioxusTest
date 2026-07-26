@@ -5200,6 +5200,7 @@ dependencies = [
  "dioxus",
  "dioxus-icons",
  "dioxus-primitives",
+ "tokio",
 ]
 
 [[package]]

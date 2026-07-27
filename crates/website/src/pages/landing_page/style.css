@@ -1,0 +1,18 @@
+.landing_page {
+    position: absolute;
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.title {
+    font-size: 5rem;
+    background: -webkit-linear-gradient(0.1turn, rgb(180, 50, 255), rgb(10, 100, 255));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}

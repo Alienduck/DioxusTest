@@ -1,44 +1,17 @@
-.stripe-1 {
+.landing_page {
     position: absolute;
+    display: flex;
     width: 100vw;
-    height: 33vh;
-    top: 0%;
-    left: 0%;
-    background-color: black;
-    animation: on_left ease-in forwards 3s;
-}
-.stripe-2 {
-    position: absolute;
-    width: 100vw;
-    height: 33vh;
-    top: 33%;
-    right: 0%;
-    background-color: black;
-    animation: on_right ease-in forwards 3s;
-}
-.stripe-3 {
-    position: absolute;
-    width: 100vw;
-    height: 33vh;
-    top: 66%;
-    left: 0%;
-    background-color: black;
-    animation: on_left ease-in forwards 3s;
+    height: 100vh;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
 }
 
-@keyframes on_left {
-    50% {
-        left: 0%;
-    }
-    100% {
-        left: 100%;
-    }
-}
-@keyframes on_right {
-    50% {
-        right: 0%;
-    }
-    100% {
-        right: 100%;
-    }
+.title {
+    font-size: 5rem;
+    background: -webkit-linear-gradient(0.1turn, rgb(180, 50, 255), rgb(10, 100, 255));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }

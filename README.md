@@ -48,4 +48,19 @@ To run for a different platform, use the `--platform platform` flag. E.g.
 dx serve --platform desktop
 ```
 
+## Bevy side
 
+To compile in wasm you'll need the tool `wasm-pack`, you can simply download with:
+```bash
+cargo install wasm-pack
+```
+
+We are using Bevy to create WASM scenes/animations, to test you need to go the crate example:
+```bash
+cd crates/fond_bevy
+```
+
+And then you need to compile in the public folder inside the website crate:
+```bash
+wasm-pack build --target web --out-name bevy_bg --out-dir ../website/public
+```

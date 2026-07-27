@@ -6,23 +6,27 @@ pub fn Hero() -> Element {
         div {
             class: "hero-container",
 
+            // Glow effect behind content
+            div {
+                class: "hero-glow",
+            }
+
             // Background animation with particles
             div {
                 class: "background-animation",
 
-                for i in 0..50 {
+                for i in 0..30 {
                     div {
                         class: "particle",
                         style: format!(
-                            "left: {}%; top: {}%; --opacity: {};",
-                            (i as f32 * 2.5) % 100.0,
-                            ((i as f32) * 2.0) % 100.0,
-                            ((i as f32) / 10.0).min(0.8)
+                            "left: {}%; top: {}%;",
+                            (i as f32 * 4.0) % 100.0,
+                            ((i as f32) * 3.5) % 100.0
                         ),
                         animation: format!(
                             "float {}s linear {}s infinite",
-                            5.0 + (i as f32) * 0.1,
-                            (i as f32 % 4.0)
+                            6.0 + (i as f32) * 0.15,
+                            (i as f32 % 5.0)
                         ),
                     }
                 }
@@ -39,7 +43,7 @@ pub fn Hero() -> Element {
 
                 p {
                     class: "hero-subtitle",
-                    "Une plateforme de développement moderne pour bâtir des applications réactives et performantes."
+                    "Une plateforme de développement moderne pour bâtir des applications réactives, performantes et intuitives."
                 }
 
                 div {
@@ -68,6 +72,16 @@ pub fn Hero() -> Element {
                         class: "btn btn-discord",
                         "👋 Join Discord"
                     }
+                }
+            }
+
+            // Scroll indicator
+            div {
+                class: "scroll-indicator",
+
+                svg {
+                    r#type: "svg",
+                    dangerous_inner_html: "<path d='M12 5v14 M19 12l-6 6-6-6' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/>"
                 }
             }
         }

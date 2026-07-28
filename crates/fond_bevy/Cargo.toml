@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-bevy = "0.19"
+bevy = { version = "0.19", features = ["webgpu"] }
 chacha20 = "0.10.1"
 rand = "0.10.2"
 wasm-bindgen = "0.2"

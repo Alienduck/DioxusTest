@@ -99,7 +99,7 @@ fn setup(
 
     commands.spawn((
         WorldAssetRoot(asset_server.load("model3d/scene.gltf#Scene0")),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Transform::from_xyz(0.5, 0.0, 0.0),
         Moon,
         EmissiveMaterial(10.0),
     ));

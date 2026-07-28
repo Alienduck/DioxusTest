@@ -1,6 +1,6 @@
-use bevy::prelude::*;
+use bevy::{ecs::relationship::Relationship, prelude::*};
 use chacha20::ChaCha8Rng;
-use rand::{RngExt, SeedableRng};
+use rand::SeedableRng;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(start)]
@@ -29,10 +29,14 @@ pub fn start() {
 }
 
 #[derive(Resource)]
+#[allow(unused)]
 struct RandomSource(ChaCha8Rng);
 
 #[derive(Component)]
 struct Moon;
+
+#[derive(Component)]
+struct Rotate(f32);
 
 #[derive(Component)]
 struct EmissiveMaterial(f32);
@@ -68,16 +72,17 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
         )),
         Moon,
         EmissiveMaterial(10.0),
+        Rotate(0.5),
     ));
 }
 
-fn rotate(mut moon_query: Query<&mut Transform, With<Moon>>, time: Res<Time>) {
-    for mut moon in moon_query.iter_mut() {
+fn rotate(mut moon_query: Query<(&mut Transform, &Rotate)>, time: Res<Time>) {
+    for (mut moon, rotation) in moon_query.iter_mut() {
         moon.rotate(Quat::from_euler(
             EulerRot::XYZ,
-            0.1 * time.delta_secs(),
-            0.1 * time.delta_secs(),
-            0.1 * time.delta_secs(),
+            rotation.0 * time.delta_secs(),
+            rotation.0 * time.delta_secs(),
+            rotation.0 * time.delta_secs(),
         ));
     }
 }
@@ -85,13 +90,32 @@ fn rotate(mut moon_query: Query<&mut Transform, With<Moon>>, time: Res<Time>) {
 fn make_moon_emissive(
     mut materials: ResMut<Assets<StandardMaterial>>,
     material_query: Query<
-        &MeshMaterial3d<StandardMaterial>,
+        (Entity, &MeshMaterial3d<StandardMaterial>),
         Added<MeshMaterial3d<StandardMaterial>>,
     >,
+    parent_query: Query<&ChildOf>,
+    emissive_query: Query<&EmissiveMaterial>,
 ) {
-    for mesh_material in material_query.iter() {
-        if let Some(mut material) = materials.get_mut(mesh_material.0.id()) {
-            material.emissive = material.base_color.to_linear() * 10.0;
+    for (entity, mesh_material) in material_query.iter() {
+        let mut current_entity = entity;
+        let mut target_intensity = None;
+
+        loop {
+            if let Ok(emissive) = emissive_query.get(current_entity) {
+                target_intensity = Some(emissive.0);
+                break;
+            }
+            if let Ok(parent) = parent_query.get(current_entity) {
+                current_entity = parent.get();
+            } else {
+                break;
+            }
+        }
+
+        if let Some(intensity) = target_intensity {
+            if let Some(mut material) = materials.get_mut(mesh_material.0.id()) {
+                material.emissive = material.base_color.to_linear() * intensity;
+            }
         }
     }
 }

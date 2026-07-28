@@ -6,7 +6,7 @@
     text-align: center;
     align-items: center;
     justify-content: center;
-    pointer-events: none;
+    /*pointer-events: none;*/
 }
 
 .title {

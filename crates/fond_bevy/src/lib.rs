@@ -1,6 +1,6 @@
 use bevy::{ecs::relationship::Relationship, prelude::*};
 use chacha20::ChaCha8Rng;
-use rand::SeedableRng;
+use rand::{RngExt, SeedableRng};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(start)]
@@ -24,7 +24,15 @@ pub fn start() {
         )
         .insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.05)))
         .add_systems(Startup, setup)
-        .add_systems(Update, (levitate, prepare_moon_material, animate_awakening))
+        .add_systems(
+            Update,
+            (
+                levitate,
+                prepare_moon_material,
+                animate_awakening,
+                twinkle_stars,
+            ),
+        )
         .run();
 }
 
@@ -45,16 +53,28 @@ struct AwakenAnimation {
     timer: f32,
 }
 
-fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
-    let seed = ChaCha8Rng::seed_from_u64(123456789);
-    commands.insert_resource(RandomSource(seed));
+#[derive(Component)]
+struct StarParticle {
+    base_intensity: f32,
+    phase: f32,
+    speed: f32,
+}
 
+#[derive(Component)]
+struct Starfield;
+
+fn setup(
+    mut commands: Commands,
+    asset_server: ResMut<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     commands.spawn((
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection::default()),
         Transform::from_xyz(0.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         bevy::camera::Hdr,
-        bevy::post_process::bloom::Bloom::ANAMORPHIC,
+        bevy::post_process::bloom::Bloom::NATURAL,
     ));
 
     commands.spawn((
@@ -83,20 +103,73 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
         Moon,
         EmissiveMaterial(10.0),
     ));
+
+    let mut rng = ChaCha8Rng::seed_from_u64(123456789);
+    const COLORS: [LinearRgba; 3] = [
+        LinearRgba::rgb(1.0, 0.8, 0.05),
+        LinearRgba::rgb(0.1, 0.1, 0.6),
+        LinearRgba::rgb(0.3, 0.1, 0.5),
+    ];
+
+    commands
+        .spawn((Transform::default(), Starfield))
+        .with_children(|parent| {
+            for _ in 0..150 {
+                let star_mesh = meshes.add(Sphere::new(rng.random_range(0.005..0.03)));
+                let r = rng.random_range(1.5..4.0);
+                let theta = rng.random_range(0.0..std::f32::consts::TAU);
+                let phi = rng.random_range(0.0..std::f32::consts::PI);
+
+                let x = r * phi.sin() * theta.cos();
+                let y = r * phi.sin() * theta.sin();
+                let z = r * phi.cos();
+
+                let base_intensity = rng.random_range(10.0..=30.0);
+                let phase = rng.random_range(0.0..std::f32::consts::TAU);
+                let speed = rng.random_range(0.5..2.0);
+
+                let base_color = COLORS[rng.random_range(0..COLORS.len())];
+                let star_material = materials.add(StandardMaterial {
+                    base_color: base_color.into(),
+                    emissive: base_color * base_intensity,
+                    ..default()
+                });
+
+                parent.spawn((
+                    Mesh3d(star_mesh.clone()),
+                    MeshMaterial3d(star_material),
+                    Transform::from_xyz(x, y, z),
+                    StarParticle {
+                        base_intensity,
+                        phase,
+                        speed,
+                    },
+                ));
+            }
+        });
+
+    commands.insert_resource(RandomSource(rng));
 }
 
-fn levitate(mut query: Query<&mut Transform, With<Moon>>, time: Res<Time>) {
+fn levitate(
+    mut moon_query: Query<&mut Transform, (With<Moon>, Without<Starfield>)>,
+    mut starfield_query: Query<&mut Transform, (With<Starfield>, Without<Moon>)>,
+    time: Res<Time>,
+) {
     let elapsed = time.elapsed_secs();
 
-    for mut transform in query.iter_mut() {
+    for mut transform in moon_query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
             std::f32::consts::FRAC_PI_4,
             (elapsed * 2.0).sin() * 0.1,
             (elapsed * 2.0).sin() * 0.1,
         );
-
         transform.translation.y = (elapsed * 1.5).sin() * 0.05;
+    }
+
+    for mut transform in starfield_query.iter_mut() {
+        transform.rotation = Quat::from_rotation_y(elapsed * 0.03);
     }
 }
 
@@ -156,6 +229,21 @@ fn animate_awakening(
         }
         if progress >= 1.0 {
             commands.entity(entity).remove::<AwakenAnimation>();
+        }
+    }
+}
+
+fn twinkle_stars(
+    time: Res<Time>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    query: Query<(&StarParticle, &MeshMaterial3d<StandardMaterial>)>,
+) {
+    let t = time.elapsed_secs();
+
+    for (star, mesh_material) in query.iter() {
+        if let Some(mut material) = materials.get_mut(mesh_material.0.id()) {
+            let twinkle = ((t * star.speed + star.phase).sin() * 0.4) + 0.6;
+            material.emissive = material.base_color.to_linear() * (star.base_intensity * twinkle);
         }
     }
 }

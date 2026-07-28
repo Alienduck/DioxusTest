@@ -20,6 +20,18 @@ pub fn start() {
                 .set(AssetPlugin {
                     meta_check: bevy::asset::AssetMetaCheck::Never,
                     ..default()
+                })
+                .set(bevy::render::RenderPlugin {
+                    render_creation: bevy::render::settings::RenderCreation::Automatic(Box::new(
+                        bevy::render::settings::WgpuSettings {
+                            backends: Some(
+                                bevy::render::settings::Backends::BROWSER_WEBGPU
+                                    | bevy::render::settings::Backends::GL,
+                            ),
+                            ..default()
+                        },
+                    )),
+                    ..default()
                 }),
         )
         .insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.05)))
@@ -27,6 +39,7 @@ pub fn start() {
         .add_systems(
             Update,
             (
+                manage_startup,
                 levitate,
                 prepare_moon_material,
                 animate_awakening,
@@ -63,6 +76,16 @@ struct StarParticle {
 #[derive(Component)]
 struct Starfield;
 
+#[derive(Resource)]
+struct StartupSequence {
+    scene_handle: Handle<WorldAsset>,
+    warmup_timer: Timer,
+    fading: bool,
+}
+
+#[derive(Component)]
+struct FadeScreen;
+
 fn setup(
     mut commands: Commands,
     asset_server: ResMut<AssetServer>,
@@ -75,6 +98,16 @@ fn setup(
         Transform::from_xyz(0.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         bevy::camera::Hdr,
         bevy::post_process::bloom::Bloom::NATURAL,
+        DistanceFog {
+            color: Color::srgb(0.5, 0.2, 0.1),
+            falloff: FogFalloff::Exponential { density: 0.15 },
+            ..default()
+        },
+        bevy::light::VolumetricFog {
+            ambient_color: Color::srgb(0.5, 0.1, 0.4),
+            ambient_intensity: 0.5,
+            ..default()
+        },
     ));
 
     commands.spawn((
@@ -97,11 +130,29 @@ fn setup(
         Transform::from_xyz(-4.0, -2.0, -4.0),
     ));
 
+    let scene = asset_server.load("model3d/scene.gltf#Scene0");
+
+    commands.insert_resource(StartupSequence {
+        scene_handle: scene.clone(),
+        warmup_timer: Timer::from_seconds(3.4, TimerMode::Once),
+        fading: false,
+    });
+
     commands.spawn((
-        WorldAssetRoot(asset_server.load("model3d/scene.gltf#Scene0")),
+        WorldAssetRoot(scene),
         Transform::from_xyz(0.5, 0.0, 0.0),
         Moon,
         EmissiveMaterial(10.0),
+    ));
+
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        },
+        BackgroundColor(Color::BLACK),
+        FadeScreen,
     ));
 
     let mut rng = ChaCha8Rng::seed_from_u64(123456789);
@@ -149,6 +200,37 @@ fn setup(
         });
 
     commands.insert_resource(RandomSource(rng));
+}
+
+fn manage_startup(
+    mut commands: Commands,
+    mut sequence: ResMut<StartupSequence>,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    mut fade_query: Query<(Entity, &mut BackgroundColor), With<FadeScreen>>,
+) {
+    if !sequence.fading {
+        if let Some(bevy::asset::LoadState::Loaded) =
+            asset_server.get_load_state(&sequence.scene_handle)
+        {
+            sequence.warmup_timer.tick(time.delta());
+            if sequence.warmup_timer.is_finished() {
+                sequence.fading = true;
+            }
+        }
+        return;
+    }
+
+    if let Ok((entity, mut bg_color)) = fade_query.single_mut() {
+        let current_alpha = bg_color.0.alpha();
+        let new_alpha = (current_alpha - time.delta_secs() * 1.5).max(0.0);
+
+        *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, new_alpha));
+
+        if new_alpha == 0.0 {
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 fn levitate(

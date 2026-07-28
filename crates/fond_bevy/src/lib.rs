@@ -24,7 +24,7 @@ pub fn start() {
         )
         .insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.05)))
         .add_systems(Startup, setup)
-        .add_systems(Update, (rotate, prepare_moon_material, animate_awakening))
+        .add_systems(Update, (levitate, prepare_moon_material, animate_awakening))
         .run();
 }
 
@@ -34,9 +34,6 @@ struct RandomSource(ChaCha8Rng);
 
 #[derive(Component)]
 struct Moon;
-
-#[derive(Component)]
-struct Rotate(f32);
 
 #[derive(Component)]
 struct EmissiveMaterial(f32);
@@ -81,26 +78,25 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     ));
 
     commands.spawn((
-        WorldAssetRoot(asset_server.load("model3d/scene.glb#Scene0")),
-        Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_euler(
-            EulerRot::XYZ,
-            90.0,
-            0.0,
-            0.0,
-        )),
+        WorldAssetRoot(asset_server.load("model3d/scene.gltf#Scene0")),
+        Transform::from_xyz(0.0, 0.0, 0.0),
         Moon,
         EmissiveMaterial(10.0),
     ));
 }
 
-fn rotate(mut moon_query: Query<(&mut Transform, &Rotate)>, time: Res<Time>) {
-    for (mut moon, rotation) in moon_query.iter_mut() {
-        moon.rotate(Quat::from_euler(
+fn levitate(mut query: Query<&mut Transform, With<Moon>>, time: Res<Time>) {
+    let elapsed = time.elapsed_secs();
+
+    for mut transform in query.iter_mut() {
+        transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
-            rotation.0 * time.delta_secs(),
-            rotation.0 * time.delta_secs(),
-            rotation.0 * time.delta_secs(),
-        ));
+            std::f32::consts::FRAC_PI_4,
+            (elapsed * 2.0).sin() * 0.1,
+            (elapsed * 2.0).sin() * 0.1,
+        );
+
+        transform.translation.y = (elapsed * 1.5).sin() * 0.05;
     }
 }
 
@@ -151,18 +147,13 @@ fn animate_awakening(
 ) {
     for (entity, mut anim, mesh_material) in query.iter_mut() {
         anim.timer += time.delta_secs();
-
         let progress = (anim.timer / anim.duration).clamp(0.0, 1.0);
-
         let smooth_t = progress * progress * (3.0 - 2.0 * progress);
-
         let current_intensity = anim.target_intensity * smooth_t;
-
         if let Some(mut material) = materials.get_mut(mesh_material.0.id()) {
             let glow_color = Color::srgb(0.2, 0.5, 1.0).to_linear();
             material.emissive = glow_color * current_intensity;
         }
-
         if progress >= 1.0 {
             commands.entity(entity).remove::<AwakenAnimation>();
         }

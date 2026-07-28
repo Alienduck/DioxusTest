@@ -10,9 +10,12 @@
 }
 
 .title {
+    position: absolute;
     font-size: 5rem;
     background: -webkit-linear-gradient(0.1turn, rgb(180, 50, 255), rgb(10, 100, 255));
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    text-align: left;
+    left: 25%;
 }

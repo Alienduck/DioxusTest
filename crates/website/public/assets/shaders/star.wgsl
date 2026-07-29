@@ -8,7 +8,7 @@ struct StarSettings {
     speed: f32,
 }
 
-@group(1) @binding(0) var<uniform> settings: StarSettings;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> settings: StarSettings;
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {

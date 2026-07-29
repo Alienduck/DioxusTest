@@ -1,4 +1,8 @@
-use bevy::{ecs::relationship::Relationship, prelude::*};
+use bevy::{
+    ecs::relationship::Relationship,
+    prelude::*,
+    render::render_resource::{AsBindGroup, ShaderType},
+};
 use chacha20::ChaCha8Rng;
 use rand::{RngExt, SeedableRng};
 use wasm_bindgen::prelude::*;
@@ -34,7 +38,8 @@ pub fn start() {
                     ..default()
                 }),
         )
-        .insert_resource(ClearColor(Color::srgb(0.05, 0.05, 0.05)))
+        .add_plugins(MaterialPlugin::<StarMaterial>::default())
+        .insert_resource(ClearColor(Color::srgb(0.05, 0.02, 0.1)))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -43,7 +48,6 @@ pub fn start() {
                 levitate,
                 prepare_moon_material,
                 animate_awakening,
-                twinkle_stars,
             ),
         )
         .run();
@@ -67,13 +71,6 @@ struct AwakenAnimation {
 }
 
 #[derive(Component)]
-struct StarParticle {
-    base_intensity: f32,
-    phase: f32,
-    speed: f32,
-}
-
-#[derive(Component)]
 struct Starfield;
 
 #[derive(Resource)]
@@ -86,11 +83,34 @@ struct StartupSequence {
 #[derive(Component)]
 struct FadeScreen;
 
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+struct StarMaterial {
+    #[uniform(0)]
+    settings: StarSettings,
+}
+
+#[derive(ShaderType, Debug, Clone)]
+struct StarSettings {
+    color: LinearRgba,
+    intensity: f32,
+    phase: f32,
+    speed: f32,
+}
+
+impl Material for StarMaterial {
+    fn fragment_shader() -> bevy::shader::ShaderRef {
+        "shaders/star.wgsl".into()
+    }
+    fn alpha_mode(&self) -> AlphaMode {
+        AlphaMode::Opaque
+    }
+}
+
 fn setup(
     mut commands: Commands,
     asset_server: ResMut<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut star_materials: ResMut<Assets<StarMaterial>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -98,11 +118,11 @@ fn setup(
         Transform::from_xyz(0.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         bevy::camera::Hdr,
         bevy::post_process::bloom::Bloom::NATURAL,
-        DistanceFog {
-            color: Color::srgb(0.5, 0.2, 0.1),
-            falloff: FogFalloff::Exponential { density: 0.15 },
-            ..default()
-        },
+        // DistanceFog {
+        //     color: Color::srgb(0.5, 0.2, 0.1),
+        //     falloff: FogFalloff::Exponential { density: 0.15 },
+        //     ..default()
+        // },
         bevy::light::VolumetricFog {
             ambient_color: Color::srgb(0.5, 0.1, 0.4),
             ambient_intensity: 0.5,
@@ -178,23 +198,21 @@ fn setup(
                 let base_intensity = rng.random_range(10.0..=30.0);
                 let phase = rng.random_range(0.0..std::f32::consts::TAU);
                 let speed = rng.random_range(0.5..2.0);
-
                 let base_color = COLORS[rng.random_range(0..COLORS.len())];
-                let star_material = materials.add(StandardMaterial {
-                    base_color: base_color.into(),
-                    emissive: base_color * base_intensity,
-                    ..default()
+
+                let star_material = star_materials.add(StarMaterial {
+                    settings: StarSettings {
+                        color: base_color,
+                        intensity: base_intensity,
+                        phase,
+                        speed,
+                    },
                 });
 
                 parent.spawn((
                     Mesh3d(star_mesh.clone()),
                     MeshMaterial3d(star_material),
                     Transform::from_xyz(x, y, z),
-                    StarParticle {
-                        base_intensity,
-                        phase,
-                        speed,
-                    },
                 ));
             }
         });
@@ -311,21 +329,6 @@ fn animate_awakening(
         }
         if progress >= 1.0 {
             commands.entity(entity).remove::<AwakenAnimation>();
-        }
-    }
-}
-
-fn twinkle_stars(
-    time: Res<Time>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<(&StarParticle, &MeshMaterial3d<StandardMaterial>)>,
-) {
-    let t = time.elapsed_secs();
-
-    for (star, mesh_material) in query.iter() {
-        if let Some(mut material) = materials.get_mut(mesh_material.0.id()) {
-            let twinkle = ((t * star.speed + star.phase).sin() * 0.4) + 0.6;
-            material.emissive = material.base_color.to_linear() * (star.base_intensity * twinkle);
         }
     }
 }
